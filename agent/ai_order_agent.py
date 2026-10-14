@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
 Baba Milk - Fast AI Voice Order Agent
-- Low Latency Rule-based matcher for Crate / Packet / Litre / Kg quantities
+- Built using full product list from Baba Milk catalog
+- Zero Price Disclosure (as requested)
+- High-speed Rule-based matching for Crates, Pouches, Litres, Kg, Cups, Buckets
+- Fast LLM fallback (Qwen) for general questions
 - STT: Sarvam AI (saaras:v3)
-- Fast LLM fallback: Qwen (qwen/qwen3.8-27b on Groq)
 - TTS: Sarvam AI (bulbul:v3, speaker: shreya)
 """
 
@@ -82,57 +84,108 @@ if not user_text:
 
 history.append({"role": "user", "content": user_text})
 
-# --- 3. RULE-BASED FAST INTERCEPTOR (Instant response without waiting for LLM) ---
+# --- 3. RULE-BASED FAST INTERCEPTOR (NO PRICE DISCLOSURE) ---
 def fast_rule_response(text):
     t = text.lower()
-    
-    # Check for confirmation ("Haan", "Confirm", "Theek hai", "Bhej do")
-    if any(w in t for w in ["haan", "theek hai", "confirm", "bhej do", "pack kar do", "yes"]):
-        return "Aapka order confirm ho gaya hai! Delivery boy jald hi pahunch jayega. Baba Milk me call karne ke liye dhanyavaad."
 
-    # Number word to digit mapping
+    # Rule 0: Order Confirmation ("Haan", "Confirm", "Theek hai", "Bhej do", "Pack kar do")
+    if any(w in t for w in ["haan", "theek hai", "confirm", "bhej do", "pack kar do", "yes", "sahi hai", "done"]):
+        return "Aapka order confirm ho gaya hai! Delivery boy jald hi deliver kar dega. Baba Milk me call karne ke liye shukriya."
+
+    # Convert spoken Hindi & English numbers to digits
     word_to_num = {
         "ek": "1", "do": "2", "teen": "3", "chaar": "4", "char": "4", "paanch": "5", "panch": "5",
         "chhah": "6", "chhe": "6", "saat": "7", "aath": "8", "nau": "9", "das": "10",
-        "one": "1", "two": "2", "three": "3", "four": "4", "five": "5"
+        "gyarah": "11", "barah": "12", "pandrah": "15", "bees": "20", "pachees": "25",
+        "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
+        "seven": "7", "eight": "8", "nine": "9", "ten": "10"
     }
     for word, digit in word_to_num.items():
         t = re.sub(r'\b' + word + r'\b', digit, t)
 
-    # 1. Crate rule: detects "5 crate", "2 crate doodh", "crate milk"
-    crate_match = re.search(r'(\d+)\s*(crate|peti|crates)', t)
-    if crate_match or "crate" in t or "peti" in t:
-        qty = crate_match.group(1) if crate_match else "5"
-        return f"Theek hai, {qty} crate Full Cream Milk note kar liya hai. 1 crate me 24 pouch aate hain. Kya main order confirm kar doon?"
+    # Quantity extractor helper
+    def extract_qty(default=1):
+        m = re.search(r'(\d+)', t)
+        return int(m.group(1)) if m else default
 
-    # 2. Litre / Packet milk rule: "2 litre", "3 packet"
-    milk_match = re.search(r'(\d+)\s*(litre|l|liter|packet|pouch)?', t)
-    if ("doodh" in t or "milk" in t) and milk_match:
-        qty = milk_match.group(1)
-        unit = "litre" if "litre" in t or "liter" in t or "l" in t else "packet"
-        rate = 68 if unit == "litre" else 34
-        total = int(qty) * rate
-        return f"Aapka {qty} {unit} Full Cream Milk note ho gaya hai, total {total} rupaye hoga. Kya order confirm kar doon?"
+    # 1. CRATE / PETI MATCHING (Milk, Curd, Chaach, etc.)
+    if "crate" in t or "peti" in t or "crates" in t:
+        qty = extract_qty(5)
+        item = "Milk"
+        if "fcm" in t or "full cream" in t:
+            item = "Full Cream Milk"
+        elif "std" in t or "standard" in t:
+            item = "Standardized Milk"
+        elif "dtm" in t or "double toned" in t:
+            item = "Double Toned Milk"
+        elif "curd" in t or "dahi" in t:
+            item = "Dahi"
+        elif "lassi" in t or "chaach" in t:
+            item = "Lassi"
+        return f"Theek hai, {qty} crate {item} note kar liya hai. Kya main order confirm kar doon?"
 
-    # 3. Paneer rule: "aadha kilo paneer", "500 gram paneer", "1 kg paneer"
+    # 2. FRESH MILK (Full Cream, Toned, Double Toned, Cow Milk, Standardized)
+    if any(w in t for w in ["doodh", "milk"]):
+        qty = extract_qty(1)
+        if "cow" in t or "gai" in t:
+            prod = "Cow Milk"
+        elif "toned" in t or "dtm" in t:
+            prod = "Toned Milk"
+        elif "standard" in t or "std" in t:
+            prod = "Standardized Milk"
+        else:
+            prod = "Full Cream Milk"
+
+        unit = "litre" if any(u in t for u in ["litre", "liter", "l"]) else "packet"
+        return f"Aapka {qty} {unit} {prod} note kar liya hai. Kya order confirm kar doon?"
+
+    # 3. PANEER (Fresh Paneer, 100g, 200g, 1kg block, 5kg tub)
     if "paneer" in t:
         if any(w in t for w in ["aadha", "adha", "500", "half"]):
-            return "Aadha kilo Fresh Paneer note ho gaya hai, iska rate 200 rupaye hoga. Kya order confirm kar doon?"
-        kg_match = re.search(r'(\d+)\s*(kg|kilo)', t)
-        qty = kg_match.group(1) if kg_match else "1"
-        total = int(qty) * 400
-        return f"{qty} kilo Fresh Paneer note ho gaya hai, total {total} rupaye hoga. Kya order confirm kar doon?"
+            return "Aadha kilo Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+        if "tub" in t or "5" in t and "kilo" in t:
+            return "5 kilo Fresh Paneer tub note kar liya hai. Kya order confirm kar doon?"
+        qty = extract_qty(1)
+        unit = "kilo" if any(u in t for u in ["kg", "kilo"]) else "packet"
+        return f"{qty} {unit} Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
 
-    # 4. Ghee rule
+    # 4. DAHI / CURD (Matka Dahi, Toned Dahi, Bulk Drum)
+    if "dahi" in t or "curd" in t:
+        qty = extract_qty(1)
+        if "matka" in t:
+            return f"{qty} Matka Dahi pot note kar liya hai. Kya order confirm kar doon?"
+        if "bucket" in t or "balti" in t or "5" in t:
+            return f"{qty} bucket Dahi note kar liya hai. Kya order confirm kar doon?"
+        if "drum" in t or "15" in t:
+            return f"{qty} commercial Dahi drum note kar liya hai. Kya order confirm kar doon?"
+        return f"{qty} packet Dahi note kar liya hai. Kya order confirm kar doon?"
+
+    # 5. GHEE (Pure Desi Ghee Jar 1L)
     if "ghee" in t:
-        kg_match = re.search(r'(\d+)\s*(kg|kilo|litre)', t)
-        qty = kg_match.group(1) if kg_match else "1"
-        total = int(qty) * 650
-        return f"{qty} kilo Desi Ghee note kar liya hai, total {total} rupaye hoga. Kya order confirm kar doon?"
+        qty = extract_qty(1)
+        return f"{qty} jar Pure Desi Ghee note kar liya hai. Kya order confirm kar doon?"
 
-    # 5. Products Inquiry / Rate list
-    if any(w in t for w in ["kya milta", "rate", "bhav", "products", "list"]):
-        return "Humare paas Full Cream Milk pouch, 1 litre pack, crates, fresh Paneer aur Desi Ghee uplabdh hai. Aapko kya chahiye?"
+    # 6. BUTTER / MAKKHAN (White Makkhan, Table Butter 500g)
+    if "makkhan" in t or "butter" in t:
+        qty = extract_qty(1)
+        b_type = "White Makkhan" if "white" in t or "safed" in t or "makkhan" in t else "Table Butter"
+        return f"{qty} pack {b_type} note kar liya hai. Kya order confirm kar doon?"
+
+    # 7. LASSI / BUTTERMILK / CHAACH
+    if any(w in t for w in ["lassi", "chaach", "chhach", "buttermilk"]):
+        qty = extract_qty(1)
+        l_type = "Sweet Lassi" if "meethi" in t or "sweet" in t else ("Chaach" if "chaach" in t else "Plain Lassi")
+        return f"{qty} packet {l_type} note kar liya hai. Kya order confirm kar doon?"
+
+    # 8. KHOA / SWEETS / KULFI / RABRI
+    if any(w in t for w in ["khoa", "mawa", "barfi", "kulfi", "rabri"]):
+        qty = extract_qty(1)
+        s_type = "Khoa" if "khoa" in t or "mawa" in t else ("Barfi" if "barfi" in t else ("Kulfi" if "kulfi" in t else "Rabri"))
+        return f"{qty} {s_type} note kar liya hai. Kya order confirm kar doon?"
+
+    # 9. PRODUCTS INQUIRY / CATALOG QUESTION
+    if any(w in t for w in ["kya milta", "menu", "products", "list", "kya kya", "item"]):
+        return "Humare paas Fresh Milk crates, Dahi, Paneer, Desi Ghee, Butter, Lassi aur Khoa uplabdh hain. Aapko kya chahiye?"
 
     return None
 
@@ -143,21 +196,19 @@ if rule_reply:
     ai_reply = rule_reply
     print(f"[Rule Fast-Path (0ms)]: {ai_reply}")
 else:
-    # Fallback to Qwen on Groq for open questions
+    # Fallback to Qwen for open questions
     client = Groq(api_key=GROQ_API_KEY)
     system_prompt = (
-        "Aap Baba Milk ki voice assistant 'Shreya' hain. "
+        "Aap Baba Milk ki voice order assistant 'Shreya' hain. "
         "Aap natural, polite Hindi/Hinglish me baat karti hain. "
-        "Products & Units: "
-        "- Crate: 1 Crate me 24 pouches (Full Cream Milk) "
-        "- Full Cream Milk 1 Litre: Rs 68 "
-        "- Full Cream Milk 500g Pouch: Rs 34 "
-        "- Fresh Paneer: Rs 400/kg "
-        "- Desi Cow Ghee: Rs 650/kg. "
-        "Crucial Rules: "
-        "1. DHYAN SE SUNO: Agar customer 'crate' ya 'peti' bole toh use LITRE mat samjho, use 'CRATE' hi bolo! "
-        "2. Javaab hamesha chhota, saaf aur 1 sentence me dein. "
-        "3. Koyi markdown, asterisks ya bullet points use na karein."
+        "Products Catalog: Fresh Milk (Crates, Litres, Pouches), Paneer (100g, 200g, 1kg, 5kg), "
+        "Dahi (Pouch, Matka Dahi, 5kg Bucket, 15kg Drum), Desi Ghee, White Makkhan, Table Butter, "
+        "Lassi, Chaach, Fresh Khoa, Barfi, Rabri, Matka Kulfi. "
+        "CRITICAL RULES: "
+        "1. DO NOT MENTION ANY PRICES OR RATES! Prices nahi batane hain. Sirf item aur quantity confirm karke poochna hai. "
+        "2. Agar customer 'crate' ya 'peti' bole toh use LITRE mat bolo, use CRATE hi bolo! "
+        "3. Javaab hamesha chhota, saaf aur 1 sentence me dein. "
+        "4. Koyi markdown, asterisks ya bullet points use na karein."
     )
 
     messages = [{"role": "system", "content": system_prompt}] + history[-6:]
@@ -166,15 +217,15 @@ else:
         completion = client.chat.completions.create(
             model=LLM_MODEL,
             messages=messages,
-            temperature=0.4,
-            max_tokens=90
+            temperature=0.3,
+            max_tokens=80
         )
         ai_reply = completion.choices[0].message.content.strip()
         ai_reply = ai_reply.replace("*", "").replace("#", "").strip()
         print(f"[Qwen LLM]: {ai_reply}")
     except Exception as e:
         print(f"[Groq LLM Exception]: {e}", file=sys.stderr)
-        ai_reply = "Ji Baba Milk me aapka swagat hai. Aapko kitne crate ya litre doodh deliver karwana hai?"
+        ai_reply = "Ji Baba Milk me aapka swagat hai. Bataiye aapko kitne crate doodh ya paneer deliver karwana hai?"
 
 history.append({"role": "assistant", "content": ai_reply})
 
