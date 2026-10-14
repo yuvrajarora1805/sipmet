@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Baba Milk - AI Voice Order Agent
+Runs natively inside the Asterisk Docker container.
 - STT: Sarvam AI (saaras:v1) - Ideal for Hindi/Hinglish speech
 - LLM: Qwen (qwen/qwen3.8-27b on Groq) - Ultra-fast, fluent Hindi/English comprehension
 - TTS: Sarvam AI (bulbul:v1, speaker: shreya) - Natural telephony voice
@@ -13,11 +14,11 @@ import base64
 import requests
 from groq import Groq
 
-# Resolve directories
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-env_file = os.path.join(base_dir, "agent", ".env")
+# Determine directory paths inside container or host
+agent_dir = os.path.dirname(os.path.abspath(__file__))
+env_file = os.path.join(agent_dir, ".env")
 
-# Helper to read .env file if present
+# Helper to read .env file
 def load_env():
     env_vars = {}
     if os.path.exists(env_file):
@@ -31,17 +32,20 @@ def load_env():
 
 file_env = load_env()
 
-# API Keys (read from environment or .env file)
+# API Keys
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", file_env.get("SARVAM_API_KEY", ""))
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", file_env.get("GROQ_API_KEY", ""))
 SPEAKER = os.environ.get("SARVAM_SPEAKER", file_env.get("SARVAM_SPEAKER", "shreya"))
-LLM_MODEL = "qwen/qwen3.8-27b"  # Fast, accurate multilingual comprehension
+LLM_MODEL = "qwen/qwen3.8-27b"
 
 # Arguments from Asterisk
 call_id = sys.argv[1] if len(sys.argv) > 1 else "test_call"
 caller_num = sys.argv[2] if len(sys.argv) > 2 else "unknown"
 
-recordings_dir = os.path.join(base_dir, "recordings")
+# Recordings directory in Asterisk container
+recordings_dir = "/var/spool/asterisk/monitor"
+if not os.path.exists(recordings_dir):
+    recordings_dir = os.path.join(os.path.dirname(agent_dir), "recordings")
 os.makedirs(recordings_dir, exist_ok=True)
 
 input_audio = os.path.join(recordings_dir, f"in_{call_id}.wav")
@@ -55,7 +59,7 @@ if os.path.exists(state_file):
     try:
         with open(state_file, "r", encoding="utf-8") as f:
             history = json.load(f)
-    except Exception as e:
+    except Exception:
         history = []
 
 # --- 2. STT: Sarvam AI (saaras:v1) ---
@@ -146,8 +150,11 @@ try:
         with open(temp_audio, "wb") as f:
             f.write(base64.b64decode(audio_b64))
 
-        # Convert to 8kHz mono WAV for telephony playback
-        os.system(f"ffmpeg -y -i {temp_audio} -ar 8000 -ac 1 {output_audio} > /dev/null 2>&1 || cp {temp_audio} {output_audio}")
+        # Convert to standard 8kHz mono WAV that Asterisk plays cleanly
+        convert_code = os.system(f"ffmpeg -y -i {temp_audio} -ar 8000 -ac 1 {output_audio} > /dev/null 2>&1")
+        if convert_code != 0:
+            import shutil
+            shutil.copyfile(temp_audio, output_audio)
         print(f"[Sarvam TTS Shreya]: Saved {output_audio}")
     else:
         print(f"[TTS Error]: {tts_res.status_code} {tts_res.text}", file=sys.stderr)
