@@ -139,15 +139,41 @@ def fast_rule_response(text):
         unit = "litre" if any(u in t for u in ["litre", "liter", "l"]) else "packet"
         return f"Aapka {qty} {unit} {prod} note kar liya hai. Kya order confirm kar doon?"
 
-    # 3. PANEER (Fresh Paneer, 100g, 200g, 1kg block, 5kg tub)
+    # 3. PANEER (Fresh Paneer: 100g pack, 200g pack, 1kg block, 5kg tub)
     if "paneer" in t:
+        # Check for pack size (100g or 200g)
+        is_100g = "100" in t or "sau gram" in t or "100g" in t or "100 g" in t
+        is_200g = "200" in t or "dosau gram" in t or "do sau gram" in t or "200g" in t or "200 g" in t
+
+        if is_100g or is_200g:
+            size_name = "100 gram" if is_100g else "200 gram"
+            # Look for packet count (e.g., "5 packet", "2 pack")
+            pack_match = re.search(r'(\d+)\s*(packet|pack|pouch|piece|pcs|tikiya)', t)
+            if pack_match:
+                count = pack_match.group(1)
+                return f"{count} packet {size_name} Fresh Paneer note kar liya hai. Kya main order confirm kar doon?"
+            else:
+                # Customer said "100g paneer" without saying how many packets!
+                return f"{size_name} Fresh Paneer ke kitne packet chahiye aapko?"
+
         if any(w in t for w in ["aadha", "adha", "500", "half"]):
             return "Aadha kilo Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
-        if "tub" in t or "5" in t and "kilo" in t:
+        if "tub" in t or ("5" in t and "kilo" in t):
             return "5 kilo Fresh Paneer tub note kar liya hai. Kya order confirm kar doon?"
-        qty = extract_qty(1)
-        unit = "kilo" if any(u in t for u in ["kg", "kilo"]) else "packet"
-        return f"{qty} {unit} Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+
+        # Default Kg / Packet matcher
+        kg_match = re.search(r'(\d+)\s*(kg|kilo)', t)
+        if kg_match:
+            qty = kg_match.group(1)
+            return f"{qty} kilo Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+
+        pkt_match = re.search(r'(\d+)\s*(packet|pack)', t)
+        if pkt_match:
+            qty = pkt_match.group(1)
+            return f"{qty} packet Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+
+        # If user just said "paneer chahiye"
+        return "Aapko kitna paneer chahiye? Humare paas 100 gram, 200 gram aur 1 kilo block uplabdh hai."
 
     # 4. DAHI / CURD (Matka Dahi, Toned Dahi, Bulk Drum)
     if "dahi" in t or "curd" in t:
