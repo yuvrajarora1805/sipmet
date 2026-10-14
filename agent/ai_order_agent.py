@@ -70,7 +70,7 @@ if os.path.exists(input_audio) and os.path.getsize(input_audio) > 1000:
         url = "https://api.sarvam.ai/speech-to-text"
         headers = {"api-subscription-key": SARVAM_API_KEY}
         with open(input_audio, "rb") as f:
-            files = {"file": f}
+            files = {"file": ("audio.wav", f, "audio/wav")}
             data = {"model": "saaras:v3", "language_code": "hi-IN"}
             res = requests.post(url, headers=headers, files=files, data=data, timeout=10)
             if res.status_code == 200:
