@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  # 1. Automated SSL Certificate Management using Certbot DNS/HTTP in Docker
+  # 1. Automated SSL Certificate Management using Certbot in Docker
   certbot:
     image: certbot/certbot:latest
     container_name: sip-certbot
@@ -9,9 +7,9 @@ services:
       - ./certs:/etc/letsencrypt
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
-  # 2. Asterisk 20 with WebRTC DTLS-SRTP, PJSIP TLS, and Opus Codec
+  # 2. Asterisk 20+ with WebRTC DTLS-SRTP, PJSIP TLS, and Opus Codec
   asterisk:
-    image: andrius/asterisk:20-latest
+    image: andrius/asterisk:latest
     container_name: babamilk-asterisk-sip
     restart: unless-stopped
     network_mode: host
