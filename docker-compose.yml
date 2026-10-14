@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  asterisk:
+    image: andrius/asterisk:20-latest
+    container_name: babamilk-asterisk-sip
+    restart: unless-stopped
+    # CRITICAL: Asterisk requires host networking to directly bind port 5061 (TLS)
+    # and dynamic RTP media streams (ports 10000-20000) without Docker NAT distortion.
+    network_mode: host
+    volumes:
+      - ./config/pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./config/extensions.conf:/etc/asterisk/extensions.conf:ro
+      - ./config/rtp.conf:/etc/asterisk/rtp.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./recordings:/var/spool/asterisk/monitor
+    cap_add:
+      - SYS_PTRACE
+      - NET_ADMIN
+    environment:
+      - TZ=Asia/Kolkata

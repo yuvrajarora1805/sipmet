@@ -1,0 +1,7 @@
+# Git Ignore for Asterisk SIP
+recordings/
+*.pem
+*.key
+*.crt
+.env
+.DS_Store
