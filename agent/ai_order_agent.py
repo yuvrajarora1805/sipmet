@@ -141,19 +141,26 @@ def fast_rule_response(text):
 
     # 3. PANEER (Fresh Paneer: 100g pack, 200g pack, 1kg block, 5kg tub)
     if "paneer" in t:
-        # Check for pack size (100g or 200g)
-        is_100g = "100" in t or "sau gram" in t or "100g" in t or "100 g" in t
-        is_200g = "200" in t or "dosau gram" in t or "do sau gram" in t or "200g" in t or "200 g" in t
+        # Check pack size: 100g or 200g
+        is_100g = bool(re.search(r'\b(100|sau)\s*(g|gm|gram|gms)?\b', t))
+        is_200g = bool(re.search(r'\b(200|dosau|do\s*sau)\s*(g|gm|gram|gms)?\b', t))
 
         if is_100g or is_200g:
             size_name = "100 gram" if is_100g else "200 gram"
-            # Look for packet count (e.g., "5 packet", "2 pack")
+            # Extract number of packets (e.g. "2 packet", "5 pack", "ke 2 packet")
+            # Look for digit before or after packet/pack
             pack_match = re.search(r'(\d+)\s*(packet|pack|pouch|piece|pcs|tikiya)', t)
+            if not pack_match:
+                pack_match = re.search(r'(packet|pack|pouch|piece|pcs|tikiya)\s*(\d+)', t)
+            if not pack_match:
+                # e.g., "100gm ke 2"
+                pack_match = re.search(r'(?:ke|ka)\s*(\d+)', t)
+
             if pack_match:
-                count = pack_match.group(1)
-                return f"{count} packet {size_name} Fresh Paneer note kar liya hai. Kya main order confirm kar doon?"
+                # Pick the digit group
+                count = pack_match.group(1) if pack_match.group(1).isdigit() else pack_match.group(2)
+                return f"100 gram Fresh Paneer ke {count} packet note kar liye hain. Kya main order confirm kar doon?" if is_100g else f"200 gram Fresh Paneer ke {count} packet note kar liye hain. Kya main order confirm kar doon?"
             else:
-                # Customer said "100g paneer" without saying how many packets!
                 return f"{size_name} Fresh Paneer ke kitne packet chahiye aapko?"
 
         if any(w in t for w in ["aadha", "adha", "500", "half"]):
@@ -170,9 +177,8 @@ def fast_rule_response(text):
         pkt_match = re.search(r'(\d+)\s*(packet|pack)', t)
         if pkt_match:
             qty = pkt_match.group(1)
-            return f"{qty} packet Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+            return f"Fresh Paneer ke {qty} packet note kar liye hain. Kya order confirm kar doon?"
 
-        # If user just said "paneer chahiye"
         return "Aapko kitna paneer chahiye? Humare paas 100 gram, 200 gram aur 1 kilo block uplabdh hai."
 
     # 4. DAHI / CURD (Matka Dahi, Toned Dahi, Bulk Drum)
