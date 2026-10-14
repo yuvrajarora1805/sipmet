@@ -26,7 +26,10 @@ file_env = load_env()
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", file_env.get("SARVAM_API_KEY", ""))
 SPEAKER = os.environ.get("SARVAM_SPEAKER", file_env.get("SARVAM_SPEAKER", "shreya"))
 
-sounds_dir = os.path.join(base_dir, "sounds")
+# Sound output directory
+sounds_dir = "/var/lib/asterisk/sounds/en"
+if not os.path.exists(sounds_dir):
+    sounds_dir = os.path.join(base_dir, "sounds")
 os.makedirs(sounds_dir, exist_ok=True)
 
 target_wav = os.path.join(sounds_dir, "baba_welcome.wav")
@@ -34,7 +37,7 @@ temp_wav = os.path.join(sounds_dir, "temp_baba_welcome.wav")
 
 text = "Namaste! Baba Milk me aapka swagat hai. Main Shreya hoon, bataiye aapko kya order karna hai?"
 
-print(f"Generating welcome audio using Sarvam TTS ({SPEAKER})...")
+print(f"Generating welcome audio using Sarvam TTS ({SPEAKER}, bulbul:v3)...")
 try:
     res = requests.post(
         "https://api.sarvam.ai/text-to-speech",
@@ -51,7 +54,7 @@ try:
             "loudness": 1.5,
             "speech_sample_rate": 8000,
             "enable_preprocessing": True,
-            "model": "bulbul:v1",
+            "model": "bulbul:v3",
         },
         timeout=15,
     )
@@ -60,7 +63,10 @@ try:
         with open(temp_wav, "wb") as f:
             f.write(base64.b64decode(b64))
 
-        os.system(f"ffmpeg -y -i {temp_wav} -ar 8000 -ac 1 {target_wav} > /dev/null 2>&1 || cp {temp_wav} {target_wav}")
+        convert_res = os.system(f"ffmpeg -y -i {temp_wav} -ar 8000 -ac 1 {target_wav} > /dev/null 2>&1")
+        if convert_res != 0:
+            import shutil
+            shutil.copyfile(temp_wav, target_wav)
         if os.path.exists(temp_wav):
             os.remove(temp_wav)
         print(f"✅ Generated {target_wav} successfully!")

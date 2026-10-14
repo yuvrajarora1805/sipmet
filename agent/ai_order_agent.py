@@ -4,7 +4,7 @@ Baba Milk - AI Voice Order Agent
 Runs natively inside the Asterisk Docker container.
 - STT: Sarvam AI (saaras:v1) - Ideal for Hindi/Hinglish speech
 - LLM: Qwen (qwen/qwen3.8-27b on Groq) - Ultra-fast, fluent Hindi/English comprehension
-- TTS: Sarvam AI (bulbul:v1, speaker: shreya) - Natural telephony voice
+- TTS: Sarvam AI (bulbul:v3, speaker: shreya) - Natural telephony voice
 """
 
 import sys
@@ -36,6 +36,7 @@ file_env = load_env()
 SARVAM_API_KEY = os.environ.get("SARVAM_API_KEY", file_env.get("SARVAM_API_KEY", ""))
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", file_env.get("GROQ_API_KEY", ""))
 SPEAKER = os.environ.get("SARVAM_SPEAKER", file_env.get("SARVAM_SPEAKER", "shreya"))
+TTS_MODEL = "bulbul:v3"  # Sarvam v3 model supporting shreya
 LLM_MODEL = "qwen/qwen3.8-27b"
 
 # Arguments from Asterisk
@@ -126,7 +127,7 @@ try:
 except Exception:
     pass
 
-# --- 4. TTS: Sarvam AI (bulbul:v1 with Shreya voice) ---
+# --- 4. TTS: Sarvam AI (bulbul:v3 with Shreya voice) ---
 try:
     tts_url = "https://api.sarvam.ai/text-to-speech"
     tts_headers = {
@@ -142,7 +143,7 @@ try:
         "loudness": 1.5,
         "speech_sample_rate": 8000,
         "enable_preprocessing": True,
-        "model": "bulbul:v1"
+        "model": TTS_MODEL
     }
     tts_res = requests.post(tts_url, headers=tts_headers, json=tts_payload, timeout=10)
     if tts_res.status_code == 200:
@@ -150,7 +151,6 @@ try:
         with open(temp_audio, "wb") as f:
             f.write(base64.b64decode(audio_b64))
 
-        # Convert to standard 8kHz mono WAV that Asterisk plays cleanly
         convert_code = os.system(f"ffmpeg -y -i {temp_audio} -ar 8000 -ac 1 {output_audio} > /dev/null 2>&1")
         if convert_code != 0:
             import shutil
