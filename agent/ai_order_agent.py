@@ -71,7 +71,7 @@ if os.path.exists(input_audio) and os.path.getsize(input_audio) > 1000:
         headers = {"api-subscription-key": SARVAM_API_KEY}
         with open(input_audio, "rb") as f:
             files = {"file": f}
-            data = {"model": "saaras:v1", "language_code": "hi-IN"}
+            data = {"model": "saaras:v3", "language_code": "hi-IN"}
             res = requests.post(url, headers=headers, files=files, data=data, timeout=10)
             if res.status_code == 200:
                 user_text = res.json().get("transcript", "").strip()
