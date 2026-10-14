@@ -1,18 +1,25 @@
 version: '3.8'
 
 services:
+  # 1. Automated SSL Certificate Management using Certbot DNS/HTTP in Docker
+  certbot:
+    image: certbot/certbot:latest
+    container_name: sip-certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  # 2. Asterisk 20 with WebRTC DTLS-SRTP, PJSIP TLS, and Opus Codec
   asterisk:
     image: andrius/asterisk:20-latest
     container_name: babamilk-asterisk-sip
     restart: unless-stopped
-    # CRITICAL: Asterisk requires host networking to directly bind port 5061 (TLS)
-    # and dynamic RTP media streams (ports 10000-20000) without Docker NAT distortion.
     network_mode: host
     volumes:
       - ./config/pjsip.conf:/etc/asterisk/pjsip.conf:ro
       - ./config/extensions.conf:/etc/asterisk/extensions.conf:ro
       - ./config/rtp.conf:/etc/asterisk/rtp.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certs:/etc/letsencrypt:ro
       - ./recordings:/var/spool/asterisk/monitor
     cap_add:
       - SYS_PTRACE
