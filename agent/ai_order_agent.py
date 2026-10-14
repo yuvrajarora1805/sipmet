@@ -175,11 +175,10 @@ def fast_rule_response(text):
         # 1kg Block Paneer (SKU: P-1)
         if is_1kg:
             if count and count != "1":
-                return f"1 kilo Fresh Paneer ke {count} pack note kar liye hain. Kya main order confirm kar doon?"
-            elif count == "1":
-                return "1 kilo Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+                return f"1 kilo Fresh Paneer ke {count} packet note kar liye hain. Kya main order confirm kar doon?"
             else:
-                return "1 kilo Fresh Paneer ke kitne pack chahiye aapko?"
+                # Customer said "1kg paneer" -> Ask how many packets/quantity!
+                return "1 kilo Fresh Paneer ke kitne packet karne hain?"
 
         # 100g / 200g Packets
         if is_100g or is_200g:
