@@ -108,6 +108,21 @@ def fast_rule_response(text):
         m = re.search(r'(\d+)', t)
         return int(m.group(1)) if m else default
 
+    # List of known products
+    has_product = any(w in t for w in [
+        "doodh", "milk", "paneer", "dahi", "curd", "ghee", "makkhan", "butter",
+        "lassi", "chaach", "chhach", "khoa", "mawa", "barfi", "kulfi", "rabri",
+        "crate", "peti"
+    ])
+
+    # If user specifies ONLY quantity without product (e.g. "5 kilo", "2 packet", "10 litre")
+    if not has_product:
+        qty_unit_match = re.search(r'(\d+)\s*(kilo|kg|litre|liter|l|packet|pack|pouch|piece|drum|bucket|barfi)', t)
+        if qty_unit_match:
+            q = qty_unit_match.group(1)
+            u = qty_unit_match.group(2)
+            return f"Aapko {q} {u} kis cheez ka chahiye? Jaise Paneer, Dahi, Doodh ya Ghee?"
+
     # 1. CRATE / PETI MATCHING (Milk, Curd, Chaach, etc.)
     if "crate" in t or "peti" in t or "crates" in t:
         qty = extract_qty(5)
@@ -238,9 +253,10 @@ else:
         "Lassi, Chaach, Fresh Khoa, Barfi, Rabri, Matka Kulfi. "
         "CRITICAL RULES: "
         "1. DO NOT MENTION ANY PRICES OR RATES! Prices nahi batane hain. Sirf item aur quantity confirm karke poochna hai. "
-        "2. Agar customer 'crate' ya 'peti' bole toh use LITRE mat bolo, use CRATE hi bolo! "
-        "3. Javaab hamesha chhota, saaf aur 1 sentence me dein. "
-        "4. Koyi markdown, asterisks ya bullet points use na karein."
+        "2. Agar customer sirf quantity bole (jaise '5 kilo', '2 packet') bina item bataye, toh hamesha poocho: 'Aapko kis cheez ka chahiye? Jaise Paneer, Doodh ya Dahi?' "
+        "3. Agar customer 'crate' ya 'peti' bole toh use LITRE mat bolo, use CRATE hi bolo! "
+        "4. Javaab hamesha chhota, saaf aur 1 sentence me dein. "
+        "5. Koyi markdown, asterisks ya bullet points use na karein."
     )
 
     messages = [{"role": "system", "content": system_prompt}] + history[-6:]
