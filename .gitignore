@@ -4,4 +4,7 @@ recordings/
 *.key
 *.crt
 .env
+agent/.env
+*.wav
+__pycache__/
 .DS_Store
