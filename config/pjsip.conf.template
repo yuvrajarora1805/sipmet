@@ -15,6 +15,8 @@ user_agent=BabaMilk-Asterisk-SIP
 type=transport
 protocol=tls
 bind=0.0.0.0:5061
+external_media_address=72.61.236.190
+external_signaling_address=72.61.236.190
 cert_file=/etc/letsencrypt/live/{{SIP_DOMAIN}}/fullchain.pem
 priv_key_file=/etc/letsencrypt/live/{{SIP_DOMAIN}}/privkey.pem
 method=tlsv1_2
@@ -42,7 +44,9 @@ dtls_verify=no
 dtls_cert_file=/etc/letsencrypt/live/{{SIP_DOMAIN}}/fullchain.pem
 dtls_private_key=/etc/letsencrypt/live/{{SIP_DOMAIN}}/privkey.pem
 dtls_setup=actpass
+dtls_fingerprint=SHA-256
 dtls_auto_generate_cert=no
+dtls_rekey=0
 
 ; Identify Meta incoming calls by IP / Domain (wa.meta.vc)
 [whatsapp-identify]
