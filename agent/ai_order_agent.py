@@ -283,15 +283,36 @@ try:
 except Exception:
     pass
 
+# Phonetic cleaner for Hindi TTS (fixes "2-shunya-shunya" -> "do sau")
+def clean_for_hindi_tts(text):
+    # Fix 100 and 200 gram pronunciations
+    text = re.sub(r'\b100\s*(?:gram|gm|g)\b', 'ek sau gram', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b200\s*(?:gram|gm|g)\b', 'do sau gram', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b500\s*(?:gram|gm|g)\b', 'aadha kilo', text, flags=re.IGNORECASE)
+
+    # Replace standalone digits with natural Hindi words
+    num_map = {
+        r'\b1\b': 'ek', r'\b2\b': 'do', r'\b3\b': 'teen', r'\b4\b': 'chaar', r'\b5\b': 'paanch',
+        r'\b6\b': 'chhe', r'\b7\b': 'saat', r'\b8\b': 'aath', r'\b9\b': 'nau', r'\b10\b': 'das',
+        r'\b15\b': 'pandrah', r'\b20\b': 'bees', r'\b24\b': 'chaubees', r'\b25\b': 'pachees'
+    }
+    for pattern, rep in num_map.items():
+        text = re.sub(pattern, rep, text)
+
+    return text
+
 # --- 5. TTS: Sarvam AI (bulbul:v3 with Shreya voice) ---
 try:
+    tts_speech_text = clean_for_hindi_tts(ai_reply)
+    print(f"[TTS Phonetic Text]: {tts_speech_text}")
+
     tts_url = "https://api.sarvam.ai/text-to-speech"
     tts_headers = {
         "Content-Type": "application/json",
         "api-subscription-key": SARVAM_API_KEY
     }
     tts_payload = {
-        "inputs": [ai_reply],
+        "inputs": [tts_speech_text],
         "target_language_code": "hi-IN",
         "speaker": SPEAKER,
         "pitch": 0,
