@@ -18,6 +18,7 @@ services:
       - ./config/extensions.conf:/etc/asterisk/extensions.conf:ro
       - ./config/rtp.conf:/etc/asterisk/rtp.conf:ro
       - ./certs:/etc/letsencrypt:ro
+      - ./sounds:/var/lib/asterisk/sounds/en:ro
       - ./recordings:/var/spool/asterisk/monitor
     cap_add:
       - SYS_PTRACE
