@@ -156,31 +156,47 @@ def fast_rule_response(text):
 
     # 3. PANEER (Fresh Paneer: 100g pack, 200g pack, 1kg block, 5kg tub)
     if "paneer" in t:
-        # Check pack size: 100g or 200g
+        # Check pack size: 100g, 200g, or 1kg block
         is_100g = bool(re.search(r'\b(100|sau)\s*(g|gm|gram|gms)?\b', t))
         is_200g = bool(re.search(r'\b(200|dosau|do\s*sau)\s*(g|gm|gram|gms)?\b', t))
+        is_1kg = bool(re.search(r'\b(1|ek)\s*(kg|kilo)\b', t))
 
+        # Check for count / quantity (e.g., "6 quantity", "6 pack", "6 block", "6 piece", "ke 6")
+        count_match = re.search(r'(\d+)\s*(quantity|count|pack|packet|pouch|piece|pcs|block|tikiya|box)', t)
+        if not count_match:
+            count_match = re.search(r'(quantity|count|pack|packet|pouch|piece|pcs|block|tikiya|box)\s*(\d+)', t)
+        if not count_match:
+            count_match = re.search(r'(?:ki|ke|ka)\s*(\d+)', t)
+
+        count = None
+        if count_match:
+            count = count_match.group(1) if count_match.group(1).isdigit() else count_match.group(2)
+
+        # 1kg Block Paneer (SKU: P-1)
+        if is_1kg:
+            if count and count != "1":
+                return f"1 kilo Fresh Paneer ke {count} pack note kar liye hain. Kya main order confirm kar doon?"
+            elif count == "1":
+                return "1 kilo Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+            else:
+                return "1 kilo Fresh Paneer ke kitne pack chahiye aapko?"
+
+        # 100g / 200g Packets
         if is_100g or is_200g:
             size_name = "100 gram" if is_100g else "200 gram"
-            # Extract number of packets (e.g. "2 packet", "5 pack", "ke 2 packet")
-            # Look for digit before or after packet/pack
-            pack_match = re.search(r'(\d+)\s*(packet|pack|pouch|piece|pcs|tikiya)', t)
-            if not pack_match:
-                pack_match = re.search(r'(packet|pack|pouch|piece|pcs|tikiya)\s*(\d+)', t)
-            if not pack_match:
-                # e.g., "100gm ke 2"
-                pack_match = re.search(r'(?:ke|ka)\s*(\d+)', t)
-
-            if pack_match:
-                # Pick the digit group
-                count = pack_match.group(1) if pack_match.group(1).isdigit() else pack_match.group(2)
-                return f"100 gram Fresh Paneer ke {count} packet note kar liye hain. Kya main order confirm kar doon?" if is_100g else f"200 gram Fresh Paneer ke {count} packet note kar liye hain. Kya main order confirm kar doon?"
+            if count:
+                return f"{size_name} Fresh Paneer ke {count} packet note kar liye hain. Kya main order confirm kar doon?"
             else:
                 return f"{size_name} Fresh Paneer ke kitne packet chahiye aapko?"
 
         if any(w in t for w in ["aadha", "adha", "500", "half"]):
+            if count and count != "1":
+                return f"Aadha kilo Fresh Paneer ke {count} packet note kar liye hain. Kya order confirm kar doon?"
             return "Aadha kilo Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
+
         if "tub" in t or ("5" in t and "kilo" in t):
+            if count and count != "1":
+                return f"5 kilo Fresh Paneer tub ke {count} unit note kar liye hain. Kya order confirm kar doon?"
             return "5 kilo Fresh Paneer tub note kar liya hai. Kya order confirm kar doon?"
 
         # Default Kg / Packet matcher
@@ -189,7 +205,7 @@ def fast_rule_response(text):
             qty = kg_match.group(1)
             return f"{qty} kilo Fresh Paneer note kar liya hai. Kya order confirm kar doon?"
 
-        pkt_match = re.search(r'(\d+)\s*(packet|pack)', t)
+        pkt_match = re.search(r'(\d+)\s*(packet|pack|quantity)', t)
         if pkt_match:
             qty = pkt_match.group(1)
             return f"Fresh Paneer ke {qty} packet note kar liye hain. Kya order confirm kar doon?"
