@@ -63,11 +63,20 @@ type=identify
 endpoint=whatsapp-inbound
 match_header=From: /.*@{{SIP_DOMAIN}}/
 
+; --- Meta Outbound Digest Authentication ---
+[whatsapp-auth]
+type=auth
+auth_type=userpass
+username=918360075552
+password=Pjzm8Lfdwka7v6sAKmeB2wUjgXFLJuJY
+realm=wa.meta.vc
+
 ; --- WhatsApp Outbound Trunk to Meta ---
 [whatsapp-outbound]
 type=endpoint
 transport=transport-tls
 context=whatsapp-calling
+outbound_auth=whatsapp-auth
 disallow=all
 allow=opus
 allow=alaw
@@ -91,5 +100,6 @@ from_domain=wa.meta.vc
 [whatsapp-outbound]
 type=aor
 contact=sip:wa.meta.vc:5061
+
 
 
