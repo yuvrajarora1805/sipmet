@@ -84,9 +84,12 @@ dtls_verify=no
 dtls_cert_file=/etc/letsencrypt/live/{{SIP_DOMAIN}}/fullchain.pem
 dtls_private_key=/etc/letsencrypt/live/{{SIP_DOMAIN}}/privkey.pem
 dtls_setup=actpass
+callerid=Auto reply <+918360075552>
+from_user=918360075552
 from_domain=wa.meta.vc
 
 [whatsapp-outbound]
 type=aor
 contact=sip:wa.meta.vc:5061
+
 
