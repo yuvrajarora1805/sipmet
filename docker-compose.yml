@@ -20,6 +20,7 @@ services:
       - ./certs:/etc/letsencrypt:ro
       - ./sounds:/var/lib/asterisk/sounds/en:rw
       - ./recordings:/var/spool/asterisk/monitor:rw
+      - ./outgoing:/var/spool/asterisk/outgoing:rw
       - ./agent:/var/lib/asterisk/agent:rw
     cap_add:
       - SYS_PTRACE

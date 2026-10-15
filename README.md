@@ -77,8 +77,47 @@ Now you can safely complete the dialog shown in your screenshot:
 
 ---
 
-### 5. Make a Test Call
+### 5. Make a Test Inbound Call
 
 Pick up your personal phone, open WhatsApp, go to your business profile, and tap the **Voice Call** button:
 - You will see live SIP packets in `sngrep` on your VPS.
 - Asterisk will answer the call and play the welcome message!
+
+---
+
+## 📞 Automatic Outbound Calling to Customer
+
+To trigger an automatic call to a customer (e.g., `917889142708`), play the welcome greeting, and engage the Shreya AI agent:
+
+### 1. Using the trigger script (Recommended)
+On your server inside `sip/`:
+```bash
+./trigger_call.sh 917889142708
+```
+
+### 2. Using Asterisk CLI directly
+```bash
+# If using Docker:
+docker exec -it babamilk-asterisk-sip asterisk -rx "channel originate PJSIP/sip:917889142708@wa.meta.vc:5061 extension 917889142708@whatsapp-outbound"
+
+# If native Asterisk:
+asterisk -rx "channel originate PJSIP/sip:917889142708@wa.meta.vc:5061 extension 917889142708@whatsapp-outbound"
+```
+
+### 3. From your Web Dashboard / Backend (Node.js / PHP)
+Write a `.call` file into the `sip/outgoing/` folder:
+```javascript
+const fs = require('fs');
+
+function triggerWhatsAppCall(phone) {
+  const callContent = `Channel: PJSIP/sip:${phone}@wa.meta.vc:5061\nCallerID: "Baba Milk" <+917889142708>\nMaxRetries: 2\nRetryTime: 30\nWaitTime: 45\nContext: whatsapp-outbound\nExtension: ${phone}\nPriority: 1\n`;
+  const tmp = `/tmp/call_${phone}_${Date.now()}.call`;
+  const dest = `./sip/outgoing/call_${phone}_${Date.now()}.call`;
+  fs.writeFileSync(tmp, callContent);
+  fs.renameSync(tmp, dest); // atomic move triggers Asterisk instantly
+}
+
+// Call customer:
+triggerWhatsAppCall('917889142708');
+```
+
