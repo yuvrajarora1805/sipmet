@@ -18,9 +18,11 @@ import hashlib
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 
 PORT = 5055
 TOKEN = os.environ.get("SIP_WEBHOOK_SECRET", "babamilk_sip_secret_2026")
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://menu.yarora.dev")
 LOCAL_SOUNDS_DIR = os.path.expanduser("~/sipmet/sounds/dealers")
 CONTAINER_SOUNDS_DIR = "/var/lib/asterisk/sounds/en/dealers"
 DEFAULT_AUDIO = "/var/lib/asterisk/sounds/en/baba_welcome"
@@ -82,11 +84,53 @@ class SecureCallTriggerHandler(http.server.BaseHTTPRequestHandler):
             return f"{CONTAINER_SOUNDS_DIR}/dealer_{dealer_id}"
         return DEFAULT_AUDIO
 
+    def forward_to_backend(self, endpoint_url, json_data):
+        try:
+            data_bytes = json.dumps(json_data).encode("utf-8")
+            req = urllib.request.Request(
+                endpoint_url,
+                data=data_bytes,
+                headers={"Content-Type": "application/json", "User-Agent": "BabaMilk-SIP-Bridge/2.0"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                res_body = resp.read().decode("utf-8", errors="ignore")
+                print(f"📡 Forwarded to backend {endpoint_url}: {resp.status} - {res_body}")
+                return True, res_body
+        except Exception as e:
+            print(f"⚠️ Forward error to {endpoint_url}: {e}")
+            return False, str(e)
+
     def do_POST(self):
         global SERVICE_ENABLED
 
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length)
+
+        # Allow localhost / Docker container to post events directly
+        client_ip = self.client_address[0]
+        is_local = client_ip in ("127.0.0.1", "localhost", "::1")
+
+        if self.path == "/api/dtmf" and is_local:
+            try:
+                payload = json.loads(post_data.decode("utf-8")) if post_data else {}
+            except Exception:
+                payload = {}
+            dealer_id = str(payload.get("dealer_id", "0"))
+            digit = str(payload.get("digit", "1"))
+            print(f"🔔 [LOCAL POST DTMF] Dealer {dealer_id} pressed digit [{digit}]")
+            ok, res = self.forward_to_backend(f"{BACKEND_URL}/api/calls/dtmf-response/{dealer_id}", {"Digits": digit})
+            return self.send_json(200, {"success": ok, "dealer_id": dealer_id, "digit": digit, "backend_res": res})
+
+        if self.path == "/api/call-event" and is_local:
+            try:
+                payload = json.loads(post_data.decode("utf-8")) if post_data else {}
+            except Exception:
+                payload = {}
+            dealer_id = str(payload.get("dealer_id", "0"))
+            event = str(payload.get("event", ""))
+            print(f"📞 [LOCAL POST EVENT] Dealer {dealer_id} event [{event}]")
+            ok, res = self.forward_to_backend(f"{BACKEND_URL}/api/calling/events", {"event": event, "dealer_id": dealer_id})
+            return self.send_json(200, {"success": ok, "dealer_id": dealer_id, "event": event, "backend_res": res})
 
         authorized, err = self.check_auth(post_data)
         if not authorized:
@@ -133,7 +177,7 @@ class SecureCallTriggerHandler(http.server.BaseHTTPRequestHandler):
         # Secure subprocess execution (safe array, no shell=True)
         cmd = [
             "docker", "exec", "babamilk-asterisk-sip", "asterisk", "-rx",
-            f"channel originate PJSIP/whatsapp-outbound/sip:{raw_phone}@wa.meta.vc:5061 extension {raw_phone}@whatsapp-outbound variable DEALER_ID={raw_dealer},BABA_API_URL=https://menu.yarora.dev,AUDIO_FILE={selected_audio}"
+            f"channel originate PJSIP/whatsapp-outbound/sip:{raw_phone}@wa.meta.vc:5061 extension {raw_phone}@whatsapp-outbound variable DEALER_ID={raw_dealer},BABA_API_URL={BACKEND_URL},AUDIO_FILE={selected_audio}"
         ]
 
         try:
@@ -151,11 +195,29 @@ class SecureCallTriggerHandler(http.server.BaseHTTPRequestHandler):
             return self.send_json(500, {"success": False, "error": str(e)})
 
     def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        params = urllib.parse.parse_qs(parsed.query)
+
+        if path == "/api/dtmf":
+            dealer_id = params.get("dealer_id", ["0"])[0]
+            digit = params.get("digit", ["1"])[0]
+            print(f"🔔 [LOCAL GET DTMF] Dealer {dealer_id} pressed digit [{digit}] -> Forwarding to backend")
+            ok, res = self.forward_to_backend(f"{BACKEND_URL}/api/calls/dtmf-response/{dealer_id}", {"Digits": digit})
+            return self.send_json(200, {"success": ok, "dealer_id": dealer_id, "digit": digit, "backend_res": res})
+
+        if path == "/api/call-event":
+            dealer_id = params.get("dealer_id", ["0"])[0]
+            event = params.get("event", [""])[0]
+            print(f"📞 [LOCAL GET EVENT] Dealer {dealer_id} event [{event}] -> Forwarding to backend")
+            ok, res = self.forward_to_backend(f"{BACKEND_URL}/api/calling/events", {"event": event, "dealer_id": dealer_id})
+            return self.send_json(200, {"success": ok, "dealer_id": dealer_id, "event": event, "backend_res": res})
+
         self.send_json(200, {
             "status": "online",
             "service": "Baba Milk SIP Webhook Trigger",
             "service_enabled": SERVICE_ENABLED,
-            "version": "2.0.0-production-hardened"
+            "version": "2.1.0-production-bridge"
         })
 
     def do_OPTIONS(self):
