@@ -174,10 +174,10 @@ class SecureCallTriggerHandler(http.server.BaseHTTPRequestHandler):
         selected_audio = self.ensure_dealer_audio(raw_dealer, audio_url)
         print(f"📞 Dispatching call: Phone={raw_phone}, Dealer={raw_dealer}, Audio={selected_audio}")
 
-        # Secure subprocess execution (safe array, no shell=True)
+        # Secure subprocess execution passing dealer_id directly in extension
         cmd = [
             "docker", "exec", "babamilk-asterisk-sip", "asterisk", "-rx",
-            f"channel originate PJSIP/whatsapp-outbound/sip:{raw_phone}@wa.meta.vc:5061 extension {raw_phone}@whatsapp-outbound variable DEALER_ID={raw_dealer},BABA_API_URL={BACKEND_URL},AUDIO_FILE={selected_audio}"
+            f"channel originate PJSIP/whatsapp-outbound/sip:{raw_phone}@wa.meta.vc:5061 extension {raw_dealer}_{raw_phone}@whatsapp-outbound"
         ]
 
         try:
