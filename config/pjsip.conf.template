@@ -70,7 +70,7 @@ match_header=From: /.*@{{SIP_DOMAIN}}/
 type=auth
 auth_type=userpass
 username=917527021461
-password=Pjzm8Lfdwka7v6sAKmeB2wUjgXFLJuJY
+password=SY4fDaRgQFWtmhpHCy1K4KLuddKoG8HU
 realm=wa.meta.vc
 
 ; --- WhatsApp Outbound Trunk to Meta ---
