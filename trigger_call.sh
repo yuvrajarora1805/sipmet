@@ -9,6 +9,8 @@
 set -euo pipefail
 
 PHONE="${1:-917889142708}"
+DEALER_ID="${2:-0}"
+AUDIO_FILE="${3:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Clean phone number (strip + and spaces)
@@ -25,7 +27,7 @@ elif [ -f "$SERVER_ENV" ]; then
   export $(grep -E '^[A-Za-z0-9_]+=' "$SERVER_ENV" | xargs -d '\n')
 fi
 
-PHONE_NUMBER_ID="${PHONE_NUMBER_ID:-1288371367698715}"
+PHONE_NUMBER_ID="${PHONE_NUMBER_ID:-1431150610073017}"
 ACCESS_TOKEN="${WHATSAPP_TOKEN:-}"
 
 if [ -z "$ACCESS_TOKEN" ]; then
@@ -35,7 +37,9 @@ fi
 
 echo "=================================================================="
 echo "📞 Baba Milk - Initiating Automatic WhatsApp Call"
-echo "🔹 Target:           $PHONE"
+echo "🔹 Target Phone:     $PHONE"
+echo "🔹 Dealer ID:        $DEALER_ID"
+echo "🔹 Custom Audio:     ${AUDIO_FILE:-None (Default Welcome)}"
 echo "🔹 Phone Number ID:  $PHONE_NUMBER_ID"
 echo "=================================================================="
 
@@ -73,9 +77,12 @@ WaitTime: 45
 Context: whatsapp-outbound
 Extension: ${PHONE}
 Priority: 1
+Set: DEALER_ID=${DEALER_ID}
+Set: AUDIO_FILE=${AUDIO_FILE}
+Set: BABA_API_URL=https://menu.yarora.dev
 EOF
 
 chmod 666 "$CALL_FILE_TEMP"
 mv "$CALL_FILE_TEMP" "$CALL_FILE_DEST"
 
-echo "✅ Trigger complete! When answered, Asterisk will play the welcome message and connect Shreya AI."
+echo "✅ Trigger complete! When answered, Asterisk will play the dealer prompt and listen for DTMF 1 or 2."

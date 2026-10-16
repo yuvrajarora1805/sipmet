@@ -85,39 +85,60 @@ Pick up your personal phone, open WhatsApp, go to your business profile, and tap
 
 ---
 
-## 📞 Automatic Outbound Calling to Customer
+## 📞 Automatic Outbound Calling & IVR Order Reminders
 
-To trigger an automatic call to a customer (e.g., `917889142708`), play the welcome greeting, and engage the Shreya AI agent:
+To trigger an automatic reminder call to a dealer (e.g., `917889142708`, `DEALER_ID=9`), play custom dealer audio, and capture DTMF keypress (1 = Order Planned, 2 = No Order Today):
 
 ### 1. Using the trigger script (Recommended)
 On your server inside `sip/`:
 ```bash
-./trigger_call.sh 917889142708
+# Syntax: ./trigger_call.sh [PHONE_NUMBER] [DEALER_ID] [OPTIONAL_CUSTOM_AUDIO_PATH]
+./trigger_call.sh 917889142708 9 /var/lib/asterisk/sounds/dealers/dealer_9
 ```
 
 ### 2. Using Asterisk CLI directly
 ```bash
 # If using Docker:
-docker exec -it babamilk-asterisk-sip asterisk -rx "channel originate PJSIP/sip:917889142708@wa.meta.vc:5061 extension 917889142708@whatsapp-outbound"
+docker exec -it babamilk-asterisk-sip asterisk -rx "channel originate PJSIP/sip:917889142708@wa.meta.vc:5061 extension 917889142708@whatsapp-outbound variable DEALER_ID=9"
 
 # If native Asterisk:
-asterisk -rx "channel originate PJSIP/sip:917889142708@wa.meta.vc:5061 extension 917889142708@whatsapp-outbound"
+asterisk -rx "channel originate PJSIP/sip:917889142708@wa.meta.vc:5061 extension 917889142708@whatsapp-outbound variable DEALER_ID=9"
 ```
 
-### 3. From your Web Dashboard / Backend (Node.js / PHP)
-Write a `.call` file into the `sip/outgoing/` folder:
+### 3. IVR DTMF Dialpad Options (Automated Feedback)
+When the call connects, Asterisk executes the `[whatsapp-outbound]` dialplan:
+- Plays personalized dealer audio or greeting prompt.
+- Listens for DTMF keypress:
+  - **Press 1:** Logs order confirmed, notifies Baba Milk backend at `POST https://menu.yarora.dev/api/calls/dtmf-response/9` (`Digits: 1`), and plays thank-you confirmation.
+  - **Press 2:** Logs no order today, notifies Baba Milk backend (`Digits: 2`), and updates daily route crate allocation.
+- Dashboard immediately updates in real-time via Server-Sent Events (SSE).
+
+### 4. From your Web Dashboard / Backend (Node.js)
 ```javascript
 const fs = require('fs');
 
-function triggerWhatsAppCall(phone) {
-  const callContent = `Channel: PJSIP/sip:${phone}@wa.meta.vc:5061\nCallerID: "Baba Milk" <+917889142708>\nMaxRetries: 2\nRetryTime: 30\nWaitTime: 45\nContext: whatsapp-outbound\nExtension: ${phone}\nPriority: 1\n`;
+function triggerDealerReminderCall(phone, dealerId, customAudioPath) {
+  const callContent = [
+    `Channel: PJSIP/sip:${phone}@wa.meta.vc:5061`,
+    `CallerID: "Baba Milk" <+917889142708>`,
+    `MaxRetries: 2`,
+    `RetryTime: 30`,
+    `WaitTime: 45`,
+    `Context: whatsapp-outbound`,
+    `Extension: ${phone}`,
+    `Priority: 1`,
+    `Set: DEALER_ID=${dealerId}`,
+    customAudioPath ? `Set: AUDIO_FILE=${customAudioPath}` : '',
+    `Set: BABA_API_URL=https://menu.yarora.dev`
+  ].filter(Boolean).join('\n') + '\n';
+
   const tmp = `/tmp/call_${phone}_${Date.now()}.call`;
   const dest = `./sip/outgoing/call_${phone}_${Date.now()}.call`;
   fs.writeFileSync(tmp, callContent);
   fs.renameSync(tmp, dest); // atomic move triggers Asterisk instantly
 }
 
-// Call customer:
-triggerWhatsAppCall('917889142708');
+// Trigger call for dealer ID 9:
+triggerDealerReminderCall('917889142708', 9);
 ```
 

@@ -33,6 +33,8 @@ disallow=all
 allow=opus
 allow=alaw
 allow=ulaw
+allow=telephone-event
+dtmf_mode=rfc4733
 direct_media=no
 force_rport=yes
 rewrite_contact=yes
@@ -67,7 +69,7 @@ match_header=From: /.*@{{SIP_DOMAIN}}/
 [whatsapp-auth]
 type=auth
 auth_type=userpass
-username=918360075552
+username=917527021461
 password=Pjzm8Lfdwka7v6sAKmeB2wUjgXFLJuJY
 realm=wa.meta.vc
 
@@ -75,12 +77,14 @@ realm=wa.meta.vc
 [whatsapp-outbound]
 type=endpoint
 transport=transport-tls
-context=whatsapp-calling
+context=whatsapp-outbound
 outbound_auth=whatsapp-auth
 disallow=all
 allow=opus
 allow=alaw
 allow=ulaw
+allow=telephone-event
+dtmf_mode=rfc4733
 direct_media=no
 force_rport=yes
 rtp_symmetric=yes
@@ -93,8 +97,8 @@ dtls_verify=no
 dtls_cert_file=/etc/letsencrypt/live/{{SIP_DOMAIN}}/fullchain.pem
 dtls_private_key=/etc/letsencrypt/live/{{SIP_DOMAIN}}/privkey.pem
 dtls_setup=actpass
-callerid=Auto reply <+918360075552>
-from_user=918360075552
+callerid=Baba milk <+917527021461>
+from_user=917527021461
 from_domain={{SIP_DOMAIN}}
 
 [whatsapp-outbound]
